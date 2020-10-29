@@ -46,6 +46,8 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.util.ArrayList;
 
 import static com.hijacker.MainActivity.FRAGMENT_CRACK;
 import static com.hijacker.MainActivity.PROCESS_AIRCRACK;
@@ -54,11 +56,14 @@ import static com.hijacker.MainActivity.background;
 import static com.hijacker.MainActivity.cap_path;
 import static com.hijacker.MainActivity.currentFragment;
 import static com.hijacker.MainActivity.debug;
+import static com.hijacker.MainActivity.getPIDs;
 import static com.hijacker.MainActivity.notification;
 import static com.hijacker.MainActivity.path;
 import static com.hijacker.MainActivity.progress;
 import static com.hijacker.MainActivity.stop;
 import static com.hijacker.MainActivity.wl_path;
+import static com.hijacker.Shell.exitShell;
+import static com.hijacker.Shell.getFreeShell;
 
 public class CrackFragment extends Fragment{
     static final int WPA = 2, WEP = 1;
@@ -256,7 +261,12 @@ public class CrackFragment extends Fragment{
         super.onStart();
 
         //Restore options
-        if(capfile_text!=null) capfileView.setText(capfile_text);
+        if(capfile_text!=null) {
+            capfileView.setText(capfile_text);
+            if (capfile_text.contains("WEP")) {
+                securityRG.check(wepRB.getId());
+            }
+        }
         if(wordlist_text!=null) wordlistView.setText(wordlist_text);
         if(securityChecked!=-1) securityRG.check(securityChecked);
         if(wepChecked!=-1) wepRG.check(wepChecked);
@@ -288,6 +298,7 @@ public class CrackFragment extends Fragment{
             consoleScrollView.fullScroll(View.FOCUS_DOWN);
         }
     }
+
     @Override
     public void onStop(){
         if(task!=null){
@@ -404,8 +415,8 @@ public class CrackFragment extends Fragment{
                             break;
                     }
                     //Create command
-                    cmd = "su -c " + aircrack_dir + " " + capfile + " -l " + path + "/aircrack-out.txt -a " + mode;
-                    if(wordlist!=null)
+                    cmd = "nohup " + aircrack_dir + " " + capfile + " -l " + path + "/aircrack-out.txt -a " + mode;
+                    if(wordlist!=null && mode == WPA)
                         cmd += " -w " + wordlist;
                     if(mode==WEP){
                         cmd += " -n ";
@@ -427,10 +438,13 @@ public class CrackFragment extends Fragment{
                                 break;
                         }
                     }
+
+                    // cap with redirects so no hang ups
+                    cmd += " </dev/null &>/dev/null &";
                     break;
 
                 case JOB_TEST:
-                    cmd = "su -c " + aircrack_dir + " -S";
+                    cmd = aircrack_dir + " -S";
                     break;
 
                 default:
@@ -474,20 +488,43 @@ public class CrackFragment extends Fragment{
         protected Boolean doInBackground(Void... params){
             if(isCancelled()) return false;
             try{
-                //Run aircrack and wait to either finish or be cancelled
-                Process dc = Runtime.getRuntime().exec(cmd);
-                BufferedReader out = new BufferedReader(new InputStreamReader(dc.getInputStream()));
                 switch(job){
                     case JOB_CRACK:
-                        while(!isCancelled() && out.readLine()!=null);
+                        // start aircrack running in background
+                        Shell su = getFreeShell();
+                        su.run(cmd);
+                        // develop sense of status
+
+                        // while aircrack is running, print status
+                        ArrayList<Integer> pids = getPIDs(PROCESS_AIRCRACK);
+                        if (pids != null) {
+                            while (!isCancelled() && pids.size() != 0) {
+                                // TODO print status
+                                pids = getPIDs(PROCESS_AIRCRACK);
+                                if (pids == null) {
+                                    break;
+                                }
+                            }
+                        }
+                        exitShell(su);
                         break;
 
                     case JOB_TEST:
+                        // only works while screen is active
+                        Process dc = Runtime.getRuntime().exec("su");
+                        PrintWriter sudo = new PrintWriter(dc.getOutputStream());
+                        BufferedReader out = new BufferedReader(new InputStreamReader(dc.getInputStream()));
+                        sudo.print(cmd + "\n");
+                        sudo.flush();
                         String str = out.readLine();
                         while(!isCancelled() && str!=null){
                             publishProgress(str);
                             str = out.readLine();
                         }
+                        sudo.print("exit\n");
+                        sudo.flush();
+                        dc.waitFor();
+                        dc.destroy();
                         break;
                 }
             }catch(Exception e){
@@ -497,8 +534,9 @@ public class CrackFragment extends Fragment{
 
             if(job==JOB_CRACK){
                 if(new File(path + "/aircrack-out.txt").exists()){
-                    Shell shell = Shell.getFreeShell();     //Using root shell because "new File(path + "/aircrack-out.txt");" throws FileNotFoundException (permission denied)
+                    Shell shell = getFreeShell();     //Using root shell because "new File(path + "/aircrack-out.txt");" throws FileNotFoundException (permission denied)
                     BufferedReader out = shell.getShell_out();
+                    if(debug) Log.d("HIJACKER/CrackFragment", "Reading aircrack-out.txt");
                     shell.run("cat " + path + "/aircrack-out.txt; echo ");              //No newline at the end of the file, readLine will hang
                     try{
                         key = out.readLine();

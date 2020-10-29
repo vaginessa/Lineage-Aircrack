@@ -126,12 +126,13 @@
             android:onClick="onCrack"/>
 
         <Button
+            android:id="@+id/aireplay_button"
             style="?android:attr/buttonBarButtonStyle"
-            android:text="@string/disconnect_all"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:onClick="onDisconnect"/>
+            android:onClick="onDisconnect"
+            android:text="@string/disconnect_all" />
 
         <Button
             style="?android:attr/buttonBarButtonStyle"

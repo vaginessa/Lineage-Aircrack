@@ -53,6 +53,9 @@ import static com.hijacker.MainActivity.getPIDs;
 import static com.hijacker.MainActivity.runInHandler;
 import static com.hijacker.MainActivity.status;
 import static com.hijacker.MainActivity.stop;
+import static com.hijacker.Shell.enableMonMode;
+import static com.hijacker.Shell.exitShell;
+import static com.hijacker.Shell.getFreeShell;
 import static com.hijacker.Shell.runOne;
 
 public class TestDialog extends DialogFragment {
@@ -61,15 +64,17 @@ public class TestDialog extends DialogFragment {
     TextView test_cur_cmd;
     ProgressBar test_progress;
     Thread thread;
+    Shell su;
     final Runnable runnable = new Runnable(){
         @Override
         public void run(){
             final boolean results[] = {false, false, false, false, false};
-            final String cmdMonMode = enable_monMode;
-            final String cmdAirodump = "su -c " + prefix + " " + airodump_dir + " " + iface;
-            final String cmdAireplay = "su -c " + prefix + " " + aireplay_dir + " --deauth 0 -a 11:22:33:44:55:66 " + iface;
+            //final String cmdMonMode = enable_monMode;
+            final String cmdAirodump = "/system/xbin/airodump-ng " + iface;
+            final String cmdAireplay = "/system/xbin/aireplay-ng -9 " + iface;
             final String cmdMdk = "su -c " + prefix + " " + mdk3bf_dir + " " + iface + " b -m";
             final String cmdReaver = "su -c " + prefix + " " + reaver_dir + " -i " + iface + " -b 00:11:22:33:44:55 -c 2";
+            su = getFreeShell();
             try{
                 stop(PROCESS_AIRODUMP);
                 stop(PROCESS_AIREPLAY);
@@ -79,14 +84,15 @@ public class TestDialog extends DialogFragment {
                 last_action = System.currentTimeMillis() + 10000;       //Make watchdog wait until the test is over
 
                 //Enable monitor mode
-                runInHandler(new Runnable(){
-                    @Override
-                    public void run(){
-                        test_cur_cmd.setText(enable_monMode);
-                    }
-                });
-                Log.d("HIJACKER/test_thread", cmdMonMode);
-                runOne(cmdMonMode);
+                enableMonMode(iface);
+//                runInHandler(new Runnable(){
+//                    @Override
+//                    public void run(){
+//                        test_cur_cmd.setText(enable_monMode);
+//                    }
+//                });
+                Log.d("HIJACKER/test_thread", "Enabling monitor mode");
+                //runOne(cmdMonMode);
                 Thread.sleep(500);
                 runInHandler(new Runnable(){        //stop everything and turn on monitor mode
                     @Override
@@ -98,7 +104,7 @@ public class TestDialog extends DialogFragment {
 
                 //Airodump
                 Log.d("HIJACKER/test_thread", cmdAirodump);
-                Runtime.getRuntime().exec(cmdAirodump);
+                su.run(cmdAirodump);
                 Thread.sleep(TEST_WAIT);
 
                 if(getPIDs(PROCESS_AIRODUMP).size()==0) thread.interrupt();
@@ -120,7 +126,7 @@ public class TestDialog extends DialogFragment {
 
                 //Aireplay
                 Log.d("HIJACKER/test_thread", cmdAireplay);
-                Runtime.getRuntime().exec(cmdAireplay);
+                su.run(cmdAireplay);
                 Thread.sleep(TEST_WAIT);
 
                 if(getPIDs(PROCESS_AIREPLAY).size()==0) results[1] = false;
@@ -219,6 +225,7 @@ public class TestDialog extends DialogFragment {
                 stop(PROCESS_AIREPLAY);
                 stop(PROCESS_MDK_BF);
                 stop(PROCESS_REAVER);
+                exitShell(su);
             }
         }
     };

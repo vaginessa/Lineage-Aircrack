@@ -92,6 +92,9 @@ import static com.hijacker.Device.trimMac;
 import static com.hijacker.IsolatedFragment.is_ap;
 import static com.hijacker.MDKFragment.ados;
 import static com.hijacker.MDKFragment.bf;
+import static com.hijacker.Shell.disableMonMode;
+import static com.hijacker.Shell.enableMonMode;
+import static com.hijacker.Shell.exitShell;
 import static com.hijacker.Shell.getFreeShell;
 import static com.hijacker.Shell.runOne;
 
@@ -109,7 +112,6 @@ public class MainActivity extends AppCompatActivity{
     static final int SORT_NOSORT = 0, SORT_ESSID = 1, SORT_BEACONS_FRAMES = 2, SORT_DATA_FRAMES = 3, SORT_PWR = 4;
     static final int CHROOT_FOUND = 0, CHROOT_BIN_MISSING = 1, CHROOT_DIR_MISSING = 2, CHROOT_BOTH_MISSING = 3;
     //State variables
-    static boolean wpacheckcont = false;
     static boolean notif_on = false, background = false;    //notif_on: notification should be shown, background: the app is running in the background
     static int aireplay_running = 0, currentFragment = FRAGMENT_AIRODUMP;         //Set currentFragment in onResume of each Fragment
     static String last_airodump = null, last_aireplay = null, last_mdk = null, last_reaver = null;
@@ -132,8 +134,6 @@ public class MainActivity extends AppCompatActivity{
     static ImageView[] status = {null, null, null, null, null};                         //Icons in TestDialog, set in TestDialog class
     static int progress_int;
     static long last_action;                        //Timestamp for the last action. Used in watchdog to avoid false positives
-    static Thread wpa_thread;
-    static Runnable wpa_runnable;
     static Menu menu;
     static MyListAdapter adapter;
     static CustomActionAdapter custom_action_adapter;
@@ -161,6 +161,8 @@ public class MainActivity extends AppCompatActivity{
     static int deauthWait, band;
     static boolean show_notif, show_details, airOnStartup, debug, show_client_count,
             monstart, always_cap, cont_on_fail, watchdog, target_deauth, enable_on_airodump, update_on_startup;
+
+    private static Shell aireplay_shell;
 
     WatchdogTask watchdogTask;
 
@@ -629,8 +631,10 @@ public class MainActivity extends AppCompatActivity{
                     prefix = pref.getString("prefix", null);    //Use user-set prefix
 
                     if(prefix==null){
+                        prefix = "";
+                        // no
                         //No user-set prefix, use default
-                        prefix = "LD_PRELOAD=" + path + "/lib/libfakeioctl.so";
+                        //prefix = "LD_PRELOAD=" + path + "/lib/libfakeioctl.so";
                     }
                 }
 
@@ -662,132 +666,7 @@ public class MainActivity extends AppCompatActivity{
 
             //Initialize threads
             publishProgress(getString(R.string.init_threads));
-            wpa_runnable = new Runnable(){
-                @Override
-                public void run(){
-                    if(debug) Log.d("HIJACKER/wpa_thread", "Started wpa_thread");
 
-                    Thread counter_thread = new Thread(new Runnable(){
-                        @Override
-                        public void run(){
-                            if(debug) Log.d("HIJACKER/wpa_subthread", "wpa_subthread started");
-                            try{
-                                progress_int = 0;
-                                while(progress_int<=deauthWait && wpacheckcont){
-                                    Thread.sleep(1000);
-                                    progress_int++;
-                                    runInHandler(new Runnable(){
-                                        @Override
-                                        public void run(){
-                                            progress.setProgress(progress_int);
-                                        }
-                                    });
-                                }
-                                if(wpacheckcont){
-                                    runInHandler(new Runnable(){
-                                        @Override
-                                        public void run(){
-                                            if(!background) Snackbar.make(findViewById(R.id.fragment1), getString(R.string.stopped_to_capture), Snackbar.LENGTH_SHORT).show();
-                                            else Toast.makeText(MainActivity.this, getString(R.string.stopped_to_capture), Toast.LENGTH_SHORT).show();
-                                            progress.setProgress(deauthWait);
-                                            progress.setIndeterminate(true);
-                                        }
-                                    });
-                                }
-                            }catch(InterruptedException e){
-                                Log.e("HIJACKER/Exception", "Caught Exception in wpa_subthread: " + e.toString());
-                                runInHandler(new Runnable(){
-                                    @Override
-                                    public void run(){
-                                        progress.setIndeterminate(false);
-                                        progress.setProgress(deauthWait);
-                                    }
-                                });
-                            }finally{
-                                stop(PROCESS_AIREPLAY);
-                            }
-                            if(debug) Log.d("HIJACKER/wpa_subthread", "wpa_subthread finished");
-                        }
-                    });
-
-                    boolean handshake_captured = false;
-                    final String capfile = Airodump.getCapFile();
-                    Shell shell = getFreeShell();
-                    try{
-                        if(capfile==null){
-                            if(debug) Log.d("HIJACKER/wpa_thread", "cap file not found, airodump is probably not running...");
-                        }else{
-                            if(debug) Log.d("HIJACKER/wpa_thread", capfile);
-                            wpacheckcont = true;
-                            counter_thread.start();
-
-                            BufferedReader out = shell.getShell_out();
-                            String buffer;
-                            while(!handshake_captured && wpacheckcont){
-                                //Check loop
-                                if(debug) Log.d("HIJACKER/wpa_thread", "Checking cap file...");
-                                shell.run(aircrack_dir + " " + capfile + "; echo ENDOFAIR");
-                                buffer = out.readLine();
-                                if(buffer==null) break;
-                                else{
-                                    while(!buffer.equals("ENDOFAIR")){
-                                        if(buffer.length()>=56){
-                                            if(buffer.charAt(56)=='1' || buffer.charAt(56)=='2' || buffer.charAt(56)=='3'){
-                                                handshake_captured = true;
-                                                break;
-                                            }
-                                        }
-                                        buffer = out.readLine();
-                                    }
-                                    Thread.sleep(700);
-                                }
-                            }
-                        }
-                    }catch(IOException | InterruptedException e){
-                        Log.e("HIJACKER/Exception", "Caught Exception in wpa_thread: " + e.toString());
-                    }finally{
-                        wpacheckcont = false;
-                        counter_thread.interrupt();
-                        shell.done();
-                        final boolean found = handshake_captured;
-                        if(found) Airodump.startClean(is_ap);
-                        runInHandler(new Runnable(){
-                            @Override
-                            public void run(){
-                                Button crack_btn = findViewById(R.id.crack);
-                                if(crack_btn!=null){
-                                    //We are in IsolatedFragment
-                                    crack_btn.setText(getString(R.string.crack));
-                                }
-
-                                if(found){
-                                    if(!background){
-                                        Snackbar s = Snackbar.make(findViewById(R.id.fragment1), getString(R.string.handshake_captured) + ' ' + capfile, Snackbar.LENGTH_LONG);
-                                        s.setAction(R.string.crack, new View.OnClickListener(){
-                                            @Override
-                                            public void onClick(View v){
-                                                CrackFragment.capfile_text = capfile;
-                                                FragmentTransaction ft = mFragmentManager.beginTransaction();
-                                                ft.replace(R.id.fragment1, MainActivity.this.crackFragment);
-                                                ft.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
-                                                ft.addToBackStack(null);
-                                                ft.commitAllowingStateLoss();
-                                            }
-                                        });
-                                        s.show();
-                                    }else{
-                                        handshake_notif.setContentText(getString(R.string.saved_in_file) + ' ' + capfile);
-                                        mNotificationManager.notify(2, handshake_notif.build());
-                                    }
-                                    progress.setIndeterminate(false);
-                                }
-                                if(debug) Log.d("HIJACKER/wpa_thread", "wpa_thread finished");
-                            }
-                        });
-                    }
-                }
-            };
-            wpa_thread = new Thread(wpa_runnable);
             watchdogTask = new WatchdogTask(MainActivity.this);
 
             //Start background service so the app won't get killed if it goes to the background
@@ -950,7 +829,8 @@ public class MainActivity extends AppCompatActivity{
                 mDrawerLayout.openDrawer(GravityCompat.START);
 
             //Start
-            runOne(enable_monMode);
+            //runOne(enable_monMode);
+            enableMonMode(iface);
             stop(PROCESS_AIRODUMP);
             stop(PROCESS_AIREPLAY);
             stop(PROCESS_MDK_BF);
@@ -958,6 +838,9 @@ public class MainActivity extends AppCompatActivity{
             stop(PROCESS_AIRCRACK);
             stop(PROCESS_REAVER);
             if(airOnStartup) Airodump.startClean();
+
+            // initialize shell reserved for aireplay-ng
+            aireplay_shell = getFreeShell();
         }
     }
 
@@ -985,11 +868,13 @@ public class MainActivity extends AppCompatActivity{
 
     public static void _startAireplay(final String str){
         try{
-            String cmd = "su -c " + prefix + " " + aireplay_dir + " -D --ignore-negative-one " + str + " " + iface;
+            String cmd = "nohup " + aireplay_dir + " -D " + str + " " + iface;
+            // cap with redirects so no hang ups
+            cmd += " </dev/null &>/dev/null &";
             if(debug) Log.d("HIJACKER/_startAireplay", cmd);
-            Runtime.getRuntime().exec(cmd);
+            aireplay_shell.run(cmd);
             last_action = System.currentTimeMillis();
-        }catch(IOException e){ Log.e("HIJACKER/Exception", "Caught Exception in _startAireplay() start block: " + e.toString()); }
+        }catch(Exception e){ Log.e("HIJACKER/Exception", "Caught Exception in _startAireplay() start block: " + e.toString()); }
         runInHandler(new Runnable(){
             @Override
             public void run(){
@@ -1005,15 +890,20 @@ public class MainActivity extends AppCompatActivity{
         _startAireplay("--deauth 0 -a " + mac);
     }
     public static void startAireplay(String target, String client){
-        //Disconnect client client from ap target
+        //Disconnect client from ap target
         aireplay_running = AIREPLAY_DEAUTH;
         _startAireplay("--deauth 0 -a " + target + " -c " + client);
+    }
+    public static void assocAireplayWEP(AP ap){
+        // associate with the given access point
+        // TODO: Make sure association is successful
+        _startAireplay("--fakeauth 0 -a " + ap.mac + (ap.isHidden() ? "" : " -e " + ap.getESSID()));
     }
     public static void startAireplayWEP(AP ap){
         //Increase IV generation from ap mac to crack a wep network
         aireplay_running = AIREPLAY_WEP;
-        _startAireplay("--fakeauth 0 -a " + ap.mac + (ap.isHidden() ? "" : " -e " + ap.getESSID()));
-        //_startAireplay("--arpreplay -b " + ap.mac);       //Aireplay tries to open a file at a read-only system
+        // TODO aireplay tries to create a file in a readonly file system
+        _startAireplay("--arpreplay -b " + ap.mac + (ap.isHidden() ? "" : " -e " + ap.getESSID()));
         //_startAireplay("--caffe-latte -b " + ap.mac);     //don't know where
     }
 
@@ -1109,7 +999,12 @@ public class MainActivity extends AppCompatActivity{
         last_action = System.currentTimeMillis();
         switch(pr){
             case PROCESS_AIRODUMP:
-                Airodump.stop();
+                if (aireplay_running != 0) stop(PROCESS_AIREPLAY);
+                if (Airodump.isRunning())
+                    Airodump.stop();
+                else {
+                    runOne(busybox + " kill $(" + busybox + " pidof airodump-ng)");
+                }
                 return;
             case PROCESS_AIREPLAY:
                 runInHandler(new Runnable(){
@@ -1171,10 +1066,6 @@ public class MainActivity extends AppCompatActivity{
                 notification();
             }
         });
-    }
-    public static void stopWPA(){
-        wpacheckcont = false;
-        if(wpa_thread!=null) wpa_thread.interrupt();
     }
 
     public static Handler handler = new Handler();
@@ -1336,7 +1227,9 @@ public class MainActivity extends AppCompatActivity{
             stop(PROCESS_MDK_DOS);
             stop(PROCESS_AIRCRACK);
             stop(PROCESS_REAVER);
-            runOne(disable_monMode);
+            //runOne(disable_monMode);
+            disableMonMode(iface);
+            exitShell(aireplay_shell);
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -1541,21 +1434,30 @@ public class MainActivity extends AppCompatActivity{
     public void onAPStats(View v){ new StatsDialog().show(mFragmentManager, "StatsDialog"); }
     public void onCrack(View v){
         //Clicked crack with isolated ap
-        if(wpa_thread.isAlive()){
-            //Clicked stop
-            stopWPA();
-            Airodump.startClean(is_ap);
-        }else{
-            //Clicked crack
-            is_ap.crack();
-            ((TextView)v).setText(R.string.stop);
+        int result = is_ap.crack();
+        if(result == 1) Toast.makeText(MainActivity.this, "Handshake not captured!", Toast.LENGTH_SHORT).show();
+        else if (result == 2) Toast.makeText(MainActivity.this, "No capture file found", Toast.LENGTH_SHORT).show();
+        else if (result == 0) {
+            FragmentTransaction ft = mFragmentManager.beginTransaction();
+            ft.replace(R.id.fragment1, MainActivity.this.crackFragment);
+            ft.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
+            ft.addToBackStack(null);
+            ft.commitAllowingStateLoss();
         }
     }
     public void onDisconnect(View v){
         //Clicked disconnect all with isolated ap
         stop(PROCESS_AIREPLAY);
-        startAireplay(is_ap.mac);
-        Toast.makeText(this, R.string.disconnect_started, Toast.LENGTH_SHORT).show();
+        if(is_ap.sec == AP.WEP) {
+            assocAireplayWEP(is_ap);
+            Toast.makeText(this, "Associated with access point", Toast.LENGTH_SHORT).show();
+            startAireplayWEP(is_ap);
+            Toast.makeText(this, "Starting aireplay packet injection", Toast.LENGTH_SHORT).show();
+        }
+        else {
+            startAireplay(is_ap.mac);
+            Toast.makeText(this, R.string.disconnect_started, Toast.LENGTH_SHORT).show();
+        }
     }
     public void onDos(View v){
         //Clicked dos with isolated ap
@@ -1585,9 +1487,6 @@ public class MainActivity extends AppCompatActivity{
 
                 if(aireplay_running==AIREPLAY_DEAUTH) str += " | Aireplay deauthenticating...";
                 else if(aireplay_running==AIREPLAY_WEP) str += " | Aireplay replaying for wep...";
-                if(wpa_thread!=null){
-                    if(wpa_thread.isAlive()) str += " | WPA cracking...";
-                }
                 if(bf) str += " | MDK3 Beacon Flooding...";
                 if(ados) str += " | MDK3 Authentication DoS...";
                 if(ReaverFragment.isRunning()) str += " | Reaver running...";
@@ -1624,7 +1523,7 @@ public class MainActivity extends AppCompatActivity{
         if(bf || ados) state += 4;
         toolbar.setOverflowIcon(overflow[state]);
 
-        if(!(ReaverFragment.isRunning() || CrackFragment.isRunning() || wpa_thread.isAlive())){
+        if(!(ReaverFragment.isRunning() || CrackFragment.isRunning())){
             progress.setIndeterminate(false);
             progress.setProgress(deauthWait);
         }

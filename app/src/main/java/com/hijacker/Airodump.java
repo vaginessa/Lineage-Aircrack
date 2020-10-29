@@ -29,12 +29,14 @@ import java.io.InputStreamReader;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 
 import static com.hijacker.AP.getAPByMac;
 import static com.hijacker.MainActivity.BAND_2;
 import static com.hijacker.MainActivity.BAND_5;
 import static com.hijacker.MainActivity.BAND_BOTH;
 import static com.hijacker.MainActivity.MAX_READLINE_SIZE;
+import static com.hijacker.MainActivity.aircrack_dir;
 import static com.hijacker.MainActivity.airodump_dir;
 import static com.hijacker.MainActivity.always_cap;
 import static com.hijacker.MainActivity.band;
@@ -52,26 +54,30 @@ import static com.hijacker.MainActivity.prefix;
 import static com.hijacker.MainActivity.refreshState;
 import static com.hijacker.MainActivity.runInHandler;
 import static com.hijacker.MainActivity.menu;
-import static com.hijacker.MainActivity.stopWPA;
 import static com.hijacker.ST.getSTByMac;
+import static com.hijacker.Shell.enableMonMode;
+import static com.hijacker.Shell.exitShell;
 import static com.hijacker.Shell.getFreeShell;
 import static com.hijacker.Shell.runOne;
 
 class Airodump{
     static final String TAG = "HIJACKER/Airodump";
     private static int channel = 0;
-    private static boolean forWPA = false, forWEP = false, running = false;
+    private static boolean handshake;
+    private static boolean forWEP = false, forWPA = false, running = false, isIsolated = false;
     private static String mac = null;
     private static String capFile = null;
     static CapFileObserver capFileObserver = null;
+    private static Shell sudo = null;
 
     static void reset(){
         stop();
         channel = 0;
-        forWPA = false;
         forWEP = false;
+        forWPA = false;
         mac = null;
         capFile = null;
+        handshake = false;
     }
     static void setChannel(int ch){
         if(isRunning()){
@@ -87,28 +93,31 @@ class Airodump{
         }
         mac = new_mac;
     }
-    static void setForWPA(boolean bool){
-        if(isRunning()){
-            Log.e(TAG, "Can't change settings while airodump is running");
-            throw new IllegalStateException("Airodump is still running");
-        }
-        if(forWEP){
-            Log.e(TAG, "Can't set forWPA when forWEP is enabled");
-            throw new IllegalStateException("Tried to set forWPA when forWEP is enabled");
-        }
-        forWPA = bool;
-    }
+
     static void setForWEP(boolean bool){
         if(isRunning()){
             Log.e(TAG, "Can't change setting while airodump is running");
             throw new IllegalStateException("Airodump is still running");
         }
         if(forWPA){
-            Log.e(TAG, "Can't set forWEP when forWPA is enabled");
-            throw new IllegalStateException("Tried to set forWEP when forWPA is enabled");
+            Log.e(TAG, "Can't change setting while airodump is running");
+            throw new IllegalStateException("Airodump is still running");
         }
         forWEP = bool;
     }
+
+    static void setForWPA(boolean bool){
+        if(isRunning()){
+            Log.e(TAG, "Can't change setting while airodump is running");
+            throw new IllegalStateException("Airodump is still running");
+        }
+        if(forWEP){
+            Log.e(TAG, "Can't change setting while airodump is running");
+            throw new IllegalStateException("Airodump is still running");
+        }
+        forWPA = bool;
+    }
+
     static void setAP(AP ap){
         if(isRunning()){
             Log.e(TAG, "Can't change setting while airodump is running");
@@ -120,8 +129,9 @@ class Airodump{
     static int getChannel(){ return channel; }
     static String getMac(){ return mac; }
     static String getCapFile(){
-        while(!capFileObserver.found_cap_file() && writingToFile()){}
-        return capFile;
+        if(capFileObserver.found_cap_file() && writingToFile())
+            return capFile;
+        else return null;
     }
     static boolean writingToFile(){ return (forWEP || forWPA || always_cap) && isRunning(); }
     static void startClean(){
@@ -131,6 +141,8 @@ class Airodump{
     static void startClean(AP ap){
         reset();
         setAP(ap);
+        if (ap.sec == AP.WEP) setForWEP(true);
+        else if (ap.sec == AP.WPA) setForWPA(true);
         start();
     }
     static void startClean(int ch){
@@ -139,49 +151,55 @@ class Airodump{
         start();
     }
     static void start(){
+        // Stop any current airodump instances
+        stop();
+
+        sudo = getFreeShell();
+
         // Construct the command
-        String cmd = "su -c " + prefix + " " + airodump_dir + " --update 9999999 --write-interval 1 --band ";
+        String cmd = "nohup " + airodump_dir + " --update 1 --berlin 1 --band ";
 
         if(band==BAND_5 || band==BAND_BOTH || channel>20) cmd += "a";
         if((band==BAND_2 || band==BAND_BOTH) && channel<=20) cmd += "bg";
 
-        cmd += " -w " + cap_tmp_path;
+        cmd += " -w " + cap_tmp_path + "/cap --output-format csv";
 
-        if(forWPA) cmd += "/handshake --output-format pcap,csv ";
-        else if(forWEP) cmd += "/wep_ivs  --output-format pcap,csv ";
-        else if(always_cap) cmd += "/cap  --output-format pcap,csv ";
-        else cmd += "/cap  --output-format csv ";
+        if((always_cap && !forWEP) || forWPA) cmd += ",pcap ";
+        else cmd += " ";
 
         // If we are starting for WEP capture, capture only IVs
         if(forWEP) cmd += "--ivs ";
 
         // If we have a valid channel, select it (airodump does not recognize 5ghz channels here)
-        if(channel>0 && channel<20) cmd += "--channel " + channel + " ";
+        if(channel>0 && channel<20) {
+            cmd += "--channel " + channel + " ";
+            // manually configure the channel since airodump is incapable - maybe not anymore -
+            //sudo.run(String.format(Locale.getDefault(), "iw %s set channel %d", iface, channel));
+        }
 
         // If we have a specific MAC, listen for it
-        if(mac!=null) cmd += "--bssid " + mac + " ";
+        if(mac!=null) {
+            cmd += "--bssid " + mac + " ";
+            isIsolated = true;
+        }
 
         cmd += iface;
 
-        // Enable monitor mode
-        if(enable_on_airodump) runOne(enable_monMode);
+        // cap with redirects so no hang ups
+        cmd += " </dev/null &>/dev/null &";
 
-        // Stop any airodump instances
-        stop();
+        // Enable monitor mode
+        if(enable_on_airodump) enableMonMode(iface);
 
         capFile = null;
         running = true;
         capFileObserver.startWatching();
 
         if(debug) Log.d("HIJACKER/Airodump.start", cmd);
-        try{
-            Runtime.getRuntime().exec(cmd);
-            last_action = System.currentTimeMillis();
-            last_airodump = cmd;
-        }catch(IOException e){
-            e.printStackTrace();
-            Log.e("HIJACKER/Exception", "Caught Exception in Airodump.start() read thread: " + e.toString());
-        }
+
+        sudo.run(cmd);
+        last_action = System.currentTimeMillis();
+        last_airodump = cmd;
 
         runInHandler(new Runnable(){
             @Override
@@ -198,6 +216,7 @@ class Airodump{
     static void stop(){
         last_action = System.currentTimeMillis();
         running = false;
+        isIsolated = false;
         capFileObserver.stopWatching();
         runInHandler(new Runnable(){
             @Override
@@ -208,11 +227,14 @@ class Airodump{
                 }
             }
         });
-        stopWPA();
+        if(debug) Log.d("HIJACKER/Airodump.stop", "Killing airodump-ng");
         runOne(busybox + " kill $(" + busybox + " pidof airodump-ng)");
         AP.saveAll();
         ST.saveAll();
-
+        if (sudo != null) {
+            exitShell(sudo);
+            sudo = null;
+        }
         runInHandler(new Runnable(){
             @Override
             public void run(){
@@ -229,85 +251,13 @@ class Airodump{
         AP temp = getAPByMac(mac);
 
         if(temp==null) new AP(essid, mac, enc, cipher, auth, pwr, beacons, data, ivs, ch);
-        else temp.update(essid, enc, cipher, auth, pwr, beacons, data, ivs, ch);
+        else temp.update(essid, enc, cipher, auth, pwr, beacons, data, ivs, ch, handshake);
     }
     public static void addST(String mac, String bssid, String probes, int pwr, int lost, int frames){
         ST temp = getSTByMac(mac);
 
         if (temp == null) new ST(mac, bssid, pwr, lost, frames, probes);
         else temp.update(bssid, pwr, lost, frames, probes);
-    }
-    static void analyzeAirodumpString(String buffer, int mode){
-        int i, j;
-
-        // Remove trailing spaces
-        while(buffer.endsWith(" "))
-            buffer = buffer.substring(0, buffer.length()-1);
-
-        if(buffer.length()<3) return;
-        if( buffer.charAt(3)==':' || buffer.charAt(3)=='o' ){
-            //logd("Found ':' or 'o' @ 3");
-            while(buffer.charAt(buffer.length()-1)=='\n'){
-                buffer = buffer.substring(0, buffer.length()-1);
-            }
-
-            //Clear spaces
-            for(i=123; i<buffer.length(); i++){
-                if(buffer.charAt(i)==' ' && buffer.charAt(i+1)==' '){
-                    for(j=i;j<buffer.length();j++){
-                        buffer = buffer.substring(0, 123) + buffer.substring(124, buffer.length());
-                    }
-                    i--;
-                }
-            }
-            if(buffer.charAt(22)==':'){
-                //logd("0         1         2         3         4         5         6");
-                //logd("0123456789012345678901234567890123456789012345678901234567890");
-                //logd(buffer);
-                //st
-                String st_mac, bssid, probes;
-                int pwr, lost, frames;
-
-                st_mac = buffer.substring(20, 37);
-
-                if(buffer.charAt(1)=='(') bssid = "na";
-                else bssid = buffer.substring(1, 18);
-
-                pwr = Integer.parseInt(buffer.substring(37, 43).replace(" ", ""));
-                lost = Integer.parseInt(buffer.substring(52, 58).replace(" ", ""));
-                frames = Integer.parseInt(buffer.substring(58, 67).replace(" ", ""));
-                if(buffer.length()>=69) probes = buffer.substring(69);
-                else probes = "";
-
-                addST(st_mac, bssid, probes, pwr, lost, frames);
-            }else{
-                //ap
-                String bssid, enc, cipher, auth, essid;
-                int pwr, beacons, data, ivs, ch;
-
-                bssid = buffer.substring(1, 17);
-
-                pwr = Integer.parseInt(buffer.substring(18, 23).replace(" ", ""));
-
-                //if mode is not 0 then airodump-ng is running for a specific channel
-                //so we need to bypass 4 characters after pwr to get the correct results because there is one extra column
-                int offset = mode==0 ? 0 : 4;
-                buffer = buffer.substring(offset);
-
-                beacons = Integer.parseInt(buffer.substring(23, 32).replace(" ", ""));
-                data = Integer.parseInt(buffer.substring(32, 41).replace(" ", ""));
-                ivs = Integer.parseInt(buffer.substring(41, 46).replace(" ", ""));
-                ch = Integer.parseInt(buffer.substring(48, 50).replace(" ", ""));
-                enc = buffer.substring(57, 61).replace(" ", "");
-                cipher = buffer.substring(62, 66);
-                auth = buffer.substring(69, 73).replace(" ", "");
-
-                if(buffer.charAt(74)!='<') essid = buffer.substring(74);
-                else essid = "<hidden>";
-
-                addAP(essid, bssid, enc, cipher, auth, pwr, beacons, data, ivs, ch);
-            }
-        }
     }
 
     static class CapFileObserver extends FileObserver{
@@ -325,13 +275,17 @@ class Airodump{
                 Log.e(TAG, "Received event " + event + " for null path");
                 return;
             }
-            boolean isPcap = path.endsWith(".pcap");
+
+            if(debug) Log.d(TAG, "Received normal event for " + path);
+
+            boolean isPcap = path.endsWith(".cap");
+            boolean isIvs = path.endsWith(".ivs");
 
             switch(event){
                 case FileObserver.CREATE:
                     // Airodump started, pcap or csv file was just created
 
-                    if(isPcap){
+                    if(isPcap || isIvs){
                         capFile = master_path + '/' + path;
                         found_cap_file = true;
                     }
@@ -339,7 +293,10 @@ class Airodump{
 
                 case FileObserver.MODIFY:
                     // Airodump just updated pcap or csv
-                    if(!isPcap){
+                    if(isPcap && isIsolated){
+                        readCap(master_path + '/' + path);
+                    }
+                    else {
                         readCsv(master_path + '/' + path, shell);
                     }
                     break;
@@ -356,11 +313,15 @@ class Airodump{
             super.startWatching();
             shell = getFreeShell();
 
+            if(debug) Log.d(TAG, "CapFileObserver starting");
+
             found_cap_file = false;
         }
         @Override
         public void stopWatching(){
             super.stopWatching();
+
+            if(debug) Log.d(TAG, "CapFileObserver stopping");
 
             if(shell!=null) {
                 if (writingToFile()) {
@@ -374,6 +335,21 @@ class Airodump{
         boolean found_cap_file(){
             return found_cap_file;
         }
+        void readCap(String cap_path){
+            Shell sudo = getFreeShell();
+            sudo.run(aircrack_dir + " " + cap_path + " | grep -Eo \"[0-9][0-9]? handshake\"");
+            BufferedReader out = sudo.getShell_out();
+            try {
+                String result = out.readLine();
+                if (result.charAt(0) != '0') handshake = true;
+            }catch (IOException e) {
+                e.printStackTrace();
+                Log.e(TAG, e.toString());
+            }
+            finally{
+                sudo.done();
+            }
+        }
         void readCsv(String csv_path, @NonNull Shell shell){
             shell.clearOutput();
             shell.run(busybox + " cat " + csv_path + "; echo ENDOFCAT");
@@ -384,7 +360,7 @@ class Airodump{
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                 while(true){
                     String line = out.readLine();
-                    Log.d(TAG, line);
+                    if(debug) Log.d(TAG, line);
                     if(line.equals("ENDOFCAT"))
                         break;
 
@@ -400,7 +376,7 @@ class Airodump{
 
                     line = line.replace(", ", ",");
                     String[] fields = line.split(",");
-                    Log.i(TAG, line);
+                    if(debug) Log.i(TAG, line);
                     if(type == 0){
                         // Parse AP
                         // BSSID, First time seen, Last time seen, channel, Speed, Privacy,Cipher,
@@ -416,9 +392,9 @@ class Airodump{
                         }
                         int ch = Integer.parseInt(fields[3].replace(" ", ""));
                         int speed = Integer.parseInt(fields[4].replace(" ", ""));
-                        String enc = fields[5];
-                        String cipher = fields[6];
-                        String auth = fields[7];
+                        String enc = fields[5].trim();
+                        String cipher = fields[6].trim();
+                        String auth = fields[7].trim();
                         int pwr = Integer.parseInt(fields[8].replace(" ", ""));
                         int beacons = Integer.parseInt(fields[9].replace(" ", ""));
                         int data = Integer.parseInt(fields[10].replace(" ", ""));

@@ -32,6 +32,7 @@ package com.hijacker;
 import android.util.Log;
 
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -114,6 +115,40 @@ class Shell{
             Log.e("HIJACKER/Shell", "runOne failed with invalid shell");
         }
     }
+    static void enableMonMode(String iface) {
+        try {
+            Shell sudo = getFreeShell();
+            sudo.run(String.format("ip link set %s down\n", iface));
+            Thread.sleep(250);
+            sudo.run(String.format("iw %s set monitor control\n", iface));
+            Thread.sleep(250);
+            sudo.run(String.format("ip link set %s up\n", iface));
+            sudo.done();
+        }catch(Exception e) {
+            e.printStackTrace();
+            Log.e("HIJACKER/Exception", "Caught Exception in Shell.enableMonMode() read thread: " + e.toString());
+        }
+    }
+
+    static void disableMonMode(String iface) {
+        try {
+            Shell sudo = getFreeShell();
+            sudo.run(String.format("ip link set %s down\n", iface));
+            Thread.sleep(250);
+            sudo.run(String.format("iw %s set type managed\n", iface));
+            sudo.done();
+        }catch(Exception e) {
+            e.printStackTrace();
+            Log.e("HIJACKER/Exception", "Caught Exception in Shell.disableMonMode() read thread: " + e.toString());
+        }
+    }
+
+    static void exitShell(Shell sh){
+        total--;
+        sh.run("exit");
+        sh.shell.destroy();
+    }
+
     static void exitAll(){
         total -= free.size();
         for(int i=0;i<free.size();i++){

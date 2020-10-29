@@ -36,7 +36,6 @@ import static com.hijacker.MainActivity.isolate;
 import static com.hijacker.MainActivity.mFragmentManager;
 import static com.hijacker.MainActivity.menu;
 import static com.hijacker.MainActivity.runInHandler;
-import static com.hijacker.MainActivity.wpa_thread;
 
 public class IsolatedFragment extends Fragment{
     static AP is_ap;
@@ -44,6 +43,7 @@ public class IsolatedFragment extends Fragment{
     private Runnable runnable;
     private boolean cont = false;
     static int exit_on;
+    private String captured;
     View fragmentView;
     TextView essid, manuf, mac, sec1, numbers, sec2;
     @Override
@@ -86,12 +86,13 @@ public class IsolatedFragment extends Fragment{
         @Override
         public void run(){
             if(cont && is_ap !=null){
+                captured = is_ap.handshake ? "Handshake Captured | " : "";
                 essid.setText(is_ap.getESSID());
                 manuf.setText(is_ap.manuf);
                 mac.setText(is_ap.mac);
                 sec1.setText("Enc: " + is_ap.enc + " | Auth: " + is_ap.auth + " | Cipher: " + is_ap.cipher);
                 numbers.setText("B: " + is_ap.getBeacons() + " | D: " + is_ap.getData() + " | #s: " + is_ap.getIvs());
-                sec2.setText("PWR: " + is_ap.pwr + " | Channel: " + is_ap.ch);
+                sec2.setText(captured + "PWR: " + is_ap.pwr + " | Channel: " + is_ap.ch);
             }
         }
     };
@@ -102,9 +103,10 @@ public class IsolatedFragment extends Fragment{
         ((MainActivity)getActivity()).refreshDrawer();
         thread = new Thread(runnable);
         thread.start();
-        ((Button)fragmentView.findViewById(R.id.crack)).setText(wpa_thread.isAlive() ? R.string.stop : R.string.crack);
+        ((Button)fragmentView.findViewById(R.id.crack)).setText(R.string.crack);
         fragmentView.findViewById(R.id.crack).setEnabled(is_ap.sec==WPA || is_ap.sec==WPA2 || is_ap.sec==WEP);
         ((Button)fragmentView.findViewById(R.id.dos)).setText(MDKFragment.ados ? R.string.stop : R.string.dos);
+        ((Button)fragmentView.findViewById(R.id.aireplay_button)).setText(is_ap.sec==WEP ? R.string.aireplay_ivs : R.string.disconnect_all);
         runInHandler(refreshRunnable);
         menu.findItem(R.id.reset).setVisible(false);
     }

@@ -67,11 +67,9 @@ import static com.hijacker.MainActivity.sort;
 import static com.hijacker.MainActivity.startAireplay;
 import static com.hijacker.MainActivity.startAireplayWEP;
 import static com.hijacker.MainActivity.stop;
-import static com.hijacker.MainActivity.stopWPA;
 import static com.hijacker.MainActivity.target_deauth;
 import static com.hijacker.MainActivity.toSort;
-import static com.hijacker.MainActivity.wpa_runnable;
-import static com.hijacker.MainActivity.wpa_thread;
+import static com.hijacker.Shell.runOne;
 
 class AP extends Device{
     static final int WPA=0, WPA2=1, WEP=2, OPN=3, UNKNOWN=4;
@@ -82,6 +80,7 @@ class AP extends Device{
     static final ArrayList<AP> currentTargetDeauth = new ArrayList<>();
     boolean isHidden = false;
     int ch, id, sec=UNKNOWN;
+    boolean handshake = false;
     private int beacons, data, ivs, total_beacons=0, total_data=0, total_ivs=0;
     private String essid;
     String enc, cipher, auth;
@@ -90,7 +89,7 @@ class AP extends Device{
        int pwr, int beacons, int data, int ivs, int ch) {
         super(mac);
         id = APs.size();
-        this.update(essid, enc, cipher, auth, pwr, beacons, data, ivs, ch);
+        this.update(essid, enc, cipher, auth, pwr, beacons, data, ivs, ch, false);
 
         upperRight = this.manuf;
         lowerLeft = this.mac;
@@ -107,10 +106,10 @@ class AP extends Device{
     }
     void update(){
         //For refresh
-        this.update(this.essid, this.enc, this.cipher, this.auth, this.pwr, this.beacons, this.data, this.ivs, this.ch);
+        this.update(this.essid, this.enc, this.cipher, this.auth, this.pwr, this.beacons, this.data, this.ivs, this.ch, this.handshake);
     }
     void update(@Nullable String essid, String enc, String cipher, String auth,
-                int pwr, int beacons, int data, int ivs, int ch){
+                int pwr, int beacons, int data, int ivs, int ch, boolean handshake){
 
         if(!toSort && sort!=SORT_NOSORT){
             switch(sort){
@@ -157,25 +156,28 @@ class AP extends Device{
         this.auth = auth;
         this.pwr = pwr;
         this.ch = ch;
+        this.handshake = handshake;
 
         if(sec==UNKNOWN){
-            switch(this.enc){
-                case "WPA":
-                    wpa++;
-                    sec = WPA;
-                    break;
-                case "WPA2":
-                    wpa2++;
-                    sec = WPA2;
-                    break;
-                case "WEP":
-                    wep++;
-                    sec = WEP;
-                    break;
-                case "OPN":
-                    opn++;
-                    sec = OPN;
-                    break;
+            if(this.enc.contains("WPA2")) {
+                wpa2++;
+                sec = WPA2;
+            }
+            else {
+                switch (this.enc) {
+                    case "WPA":
+                        wpa++;
+                        sec = WPA;
+                        break;
+                    case "WEP":
+                        wep++;
+                        sec = WEP;
+                        break;
+                    case "OPN":
+                        opn++;
+                        sec = OPN;
+                        break;
+                }
             }
         }
         upperLeft = this.getESSID() + (this.alias==null ? "" : " (" + alias + ')');
@@ -198,32 +200,35 @@ class AP extends Device{
             if(clients.get(i)==st) clients.remove(i);
         }
     }
-    void crack(){
-        stop(PROCESS_AIRODUMP);
+    int crack(){
+        if(is_ap==null) {
+            isolate(this.mac);
+            return 3;
+        }
         stop(PROCESS_AIREPLAY);
         adapter.notifyDataSetChanged();
+        String capFile = Airodump.getCapFile();
+        if (capFile == null) return 2;
+        String append = "";
         if(this.sec == WEP){
             //wep
-            if(debug) Log.d("HIJACKER/AP", "Cracking WEP");
-            Airodump.reset();
-            Airodump.setAP(this);
-            Airodump.setForWEP(true);
-            Airodump.start();
-            if(essid!=null) startAireplayWEP(this);
-            progress.setIndeterminate(true);
+            if(debug) Log.d("HIJACKER/AP", "Switching to crack WEP");
+            append = "-WEP";
         }else if(this.sec == WPA || this.sec == WPA2){
             //wpa/wpa2
-            stopWPA();
-            if(debug) Log.d("HIJACKER/AP", "Cracking WPA/WPA2");
-            Airodump.reset();
-            Airodump.setAP(this);
-            Airodump.setForWPA(true);
-            Airodump.start();
-            startAireplay(this.mac);
-            wpa_thread = new Thread(wpa_runnable);
-            wpa_thread.start();
+            if(!handshake) return 1;
+            if (debug) Log.d("HIJACKER/AP", "Switching to crack WPA/WPA2");
         }
-        if(is_ap==null) isolate(this.mac);
+        String essid_file = cap_path + "/";
+        if (isHidden) {
+            essid_file += "hidden" + append + ".cap";
+        }
+        else {
+            essid_file += essid + append + ".cap";
+        }
+        runOne("cp " + capFile + " " + essid_file );
+        CrackFragment.capfile_text = essid_file;
+        return 0;
     }
     void crackReaver(MainActivity activity){
         FragmentManager fragmentManager = activity.getFragmentManager();
