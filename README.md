@@ -12,6 +12,7 @@ This fork changed extensive things.
 5. explain security sacrifices
 6. Include testAP scripts
 7. rename repository?
+8. include guide for signing build?
 
 #### Consider yourself warned.
 
