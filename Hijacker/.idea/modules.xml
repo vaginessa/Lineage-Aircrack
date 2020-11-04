@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/ApkProjects-Hijacker.iml" filepath="$PROJECT_DIR$/ApkProjects-Hijacker.iml" group="Hijacker" />
       <module fileurl="file://$PROJECT_DIR$/Hijacker.iml" filepath="$PROJECT_DIR$/Hijacker.iml" group="Hijacker" />
+      <module fileurl="file://$PROJECT_DIR$/Hijacker-Hijacker.iml" filepath="$PROJECT_DIR$/Hijacker-Hijacker.iml" group="Hijacker" />
       <module fileurl="file://$PROJECT_DIR$/app/Hijacker-app.iml" filepath="$PROJECT_DIR$/app/Hijacker-app.iml" group="Hijacker/app" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" group="Hijacker/app" />
     </modules>
