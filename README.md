@@ -13,13 +13,13 @@ This guide assumes the target device is a Google Pixel (Sailfish). If you would 
 1. Follow [this guide](https://wiki.lineageos.org/devices/sailfish/build) to set up the build tools and source tree for LineageOS 16.1 on Sailfish. **Stop** after extracting proprietary blobs. It is assumed the source tree root is at Lineage/
 2. Generate the kernel menuconfig
 
-  a. Change directories to the kernel root. 
+    a. Change directories to the kernel root. 
   ```bash
   cd Lineage/kernel/google/marlin
   ```
   The Marlin codename is for the Google Pixel XL, which has rougly the same kernel as the Sailfish. For another device, this directory will likely be `Lineage/kernel/<manufacturer>/<codename>`
   
-  b. Generate the kernel configuration file.
+    b. Generate the kernel configuration file.
     make ARCH=arm64 lineageos_marlin_defconfig SELINUX_DEFCONFIG=selinux_defconfig
 
 ## Installing the standalone binaries
