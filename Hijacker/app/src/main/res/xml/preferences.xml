@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="@string/general">
+
+        <SwitchPreference
+            android:defaultValue="@string/show_notif"
+            android:key="show_notif"
+            android:summary="@string/notif_sum"
+            android:title="@string/notif_title" />
+        <SwitchPreference
+            android:defaultValue="@string/show_details"
+            android:dependency="show_notif"
+            android:key="show_details"
+            android:summary="@string/notif_details_sum"
+            android:title="@string/notif_details_title" />
+        <SwitchPreference
+            android:defaultValue="@string/watchdog"
+            android:key="watchdog"
+            android:summary="@string/watchdog_sum"
+            android:title="@string/watchdog_title" />
+        <SwitchPreference
+            android:defaultValue="@string/show_client_count"
+            android:key="show_client_count"
+            android:title="@string/show_client_count_title" />
+        <SwitchPreference
+            android:defaultValue="@string/debug"
+            android:key="debug"
+            android:summary="@string/debug_sum"
+            android:title="@string/debug_title" />
+        <EditTextPreference
+            android:defaultValue="@string/prefix"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="@string/prefix_title"
+            android:key="prefix"
+            android:enabled="false"
+            android:summary="@string/prefix_sum"
+            android:dialogMessage="@string/prefix_desc"
+            android:dialogTitle="@string/prefix_title" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Airodump">
+        <SwitchPreference
+            android:defaultValue="@string/airOnStartup"
+            android:key="airOnStartup"
+            android:title="@string/startup_title" />
+        <SwitchPreference
+            android:defaultValue="@string/always_cap"
+            android:title="@string/always_cap_title"
+            android:summary="@string/always_cap_sum"
+            android:key="always_cap"/>
+        <ListPreference
+            android:defaultValue="1"
+            android:entries="@array/band_choices"
+            android:entryValues="@array/band_values"
+            android:key="band"
+            android:summary="@string/band_sum"
+            android:title="@string/band_title" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="Aireplay">
+        <EditTextPreference
+            android:defaultValue="@string/deauthWait"
+            android:dialogMessage="@string/deauthWait_desc"
+            android:dialogTitle="@string/deauthWait_title"
+            android:inputType="number"
+            android:key="deauthWait"
+            android:maxLength="8"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:summary="@string/deauthWait_sum"
+            android:title="@string/deauthWait_title" />
+        <SwitchPreference
+            android:defaultValue="@string/target_deauth"
+            android:title="@string/target_deauth_title"
+            android:summary="@string/target_deauth_sum"
+            android:key="target_deauth"/>
+    </PreferenceCategory>
+    <PreferenceCategory android:title="Interface">
+
+        <EditTextPreference
+            android:defaultValue="@string/iface"
+            android:selectAllOnFocus="true"
+            android:title="@string/iface_title"
+            android:key="iface"
+            android:singleLine="true"
+            android:summary="@string/iface_sum"
+            android:dialogMessage="@string/iface_desc"
+            android:dialogTitle="@string/iface_title" />
+        <EditTextPreference
+            android:defaultValue="@string/enable_monMode"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="@string/mm_title"
+            android:key="enable_monMode"
+            android:summary="@string/mm_sum"
+            android:dialogMessage="@string/mm_desc"
+            android:dialogTitle="@string/mm_title" />
+        <EditTextPreference
+            android:selectAllOnFocus="true"
+            android:dialogMessage="@string/mm2_desc"
+            android:dialogTitle="@string/mm2_title"
+            android:summary="@string/mm2_sum"
+            android:singleLine="true"
+            android:title="@string/mm2_title"
+            android:key="disable_monMode"
+            android:defaultValue="@string/disable_monMode" />
+        <SwitchPreference
+            android:defaultValue="true"
+            android:key="enable_on_airodump"
+            android:summary="@string/enable_on_airodump_sum"
+            android:title="@string/enable_on_airodump_title" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="@string/tools">
+        <Preference
+            android:title="@string/install_nexmon_title"
+            android:summary="@string/install_nexmon_sum"
+            android:key="install_nexmon" />
+        <Preference
+            android:title="@string/test_title"
+            android:summary="@string/test_sum"
+            android:key="test_tools" />
+        <Preference
+            android:title="@string/copy_sample_title"
+            android:key="copy_sample_button" />
+    </PreferenceCategory>
+    <PreferenceCategory
+        android:title="@string/chroot">
+
+        <Preference
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="@string/chroot_title"
+            android:summary="@string/chroot_desc"
+            android:key="chroot_dir"/>
+        <EditTextPreference
+            android:hint="sh /root/myscript.sh"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="@string/custom_chroot_cmd_title"
+            android:summary="@string/custom_chroot_cmd_sum"
+            android:dialogMessage="@string/custom_chroot_cmd_desc"
+            android:dialogTitle="@string/custom_chroot_cmd_title"
+            android:key="custom_chroot_cmd"/>
+        <SwitchPreference
+            android:defaultValue="@string/monstart"
+            android:title="@string/monstart_title"
+            android:summary="@string/monstart_sum"
+            android:key="monstart"/>
+
+        <SwitchPreference
+            android:defaultValue="@string/cont_on_fail"
+            android:title="@string/cont_on_fail_title"
+            android:summary="@string/cont_on_fail_sum"
+            android:key="cont_on_fail"/>
+
+    </PreferenceCategory>
+    <PreferenceCategory android:title="@string/other">
+        <Preference
+            android:title="@string/reset_title"
+            android:key="reset_pref" />
+        <Preference
+            android:title="@string/github_title"
+            android:key="github" />
+        <Preference
+            android:key="send_feedback"
+            android:title="@string/send_feedback_title"/>
+        <SwitchPreference
+            android:defaultValue="@string/auto_update"
+            android:title="@string/update_on_startup"
+            android:key="update_on_startup"/>
+        <Preference
+            android:key="version"
+            android:title="@string/version_title" />
+    </PreferenceCategory>
+
+</PreferenceScreen>
