@@ -7,3 +7,5 @@ Hijacker/.DS_Store
 Hijacker/build
 Hijacker/captures
 Hijacker/.externalNativeBuild
+Hijacker/app/build
+Hijacker/app/.cxx
