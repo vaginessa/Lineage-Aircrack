@@ -95,4 +95,4 @@ While devoloping a working port of Hijacker, I created a test script and config 
 
 ## Legal
 
-It is illegal to use this application against networks for which you don't have permission. You can use it only on your network or a network that you are authorized to. Using software that uses a network adapter in promiscuous mode may be considered illegal even without actively using it against someone. I am not responsible for how you use this application and any damages you may cause.
+It is illegal to use this project against networks for which you don't have permission. You can use it only on your network or a network that you are authorized to. Using software that uses a network adapter in promiscuous mode may be considered illegal even without actively using it against someone. I am not responsible for how you use this application and any damages you may cause.
