@@ -73,7 +73,9 @@ cp .config Lineage/kernel/google/marlin/arch/arm64/configs/lineageos_marlin_defc
 6. Complete the ROM build. LineageOS now supports your external wireless card. 
 
 ## Installing the standalone binaries
+If you just want the aircrack binaries as executable programs from the command line, an addon package has been made for LineageOS 16.1. See the addon-wifi directory for the signed package.
 
+1. 
 
 ## Hijacker
 
