@@ -4,7 +4,7 @@ The goal of this project was to modify LineageOS 16.1 to support the [aircrack-n
 This guide uses sailfish as the target device, but adaptation of this method to other devices supported by Lineage should be relatively easy. 
 
 ### By setting up this project, your phone will be *less* secure. This should only be used for educational purposes. 
-#### This project is very technical as I have not had the time to implement a simple installer. Many features of Hijacker do not work. 
+#### This project is very technical. Many features of Hijacker do not work. 
 I explain how to pull source and build everything. Experience compiling a kernel and android apps is not required, but will help.
 
 ## Setting up the drivers
