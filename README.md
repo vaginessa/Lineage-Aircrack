@@ -77,12 +77,15 @@ If you just want the aircrack binaries as executable programs from the command l
 
 1. [Install LineageOS normally](https://wiki.lineageos.org/devices/sailfish/install).
 2. After sideloading LineageOS but *before* rebooting, flash my [wifi addon](https://github.com/pkelly916/Lineage-Aircrack/tree/master/addon-wifi). 
-3. *Optional:* The [su addon](https://download.lineageos.org/extras) is recommended, but can be replaced with another root implementation such as [SuperSU](https://supersu.en.uptodown.com/android) or [Magisk](https://www.xda-developers.com/how-to-install-magisk/). A root implementation is *required* to use the aircrack binaries. 
+3. *Optional:* Install the [su addon](https://download.lineageos.org/extras). If you would prefer to not root the entire device, LineageOS's basic su can be replaced with another root implementation such as [SuperSU](https://supersu.en.uptodown.com/android) or [Magisk](https://www.xda-developers.com/how-to-install-magisk/). A root implementation is *required* to use the aircrack binaries. 
 4. Open a root terminal and run airmon-ng, aircrack-ng, etc as normal. 
 
 ## Hijacker
 
-Hijacker is a Graphical User Interface for the penetration testing tools [Aircrack-ng, and Airodump-ng](https://www.aircrack-ng.org/). It offers a simple and easy UI to use these tools without typing commands in a console and copy&pasting MAC addresses.
+[Hijacker](https://github.com/chrisk44/Hijacker) is a Graphical User Interface for the penetration testing tools [Aircrack-ng and Airodump-ng](https://www.aircrack-ng.org/). It offers a simple and easy UI to use these tools without typing commands in a console and copy&pasting MAC addresses. 
 
-This fork changed extensive things. 
+The original Hijacker implementation assumes that a root shell spawned by the app is never halted, but due to Lineage's battery management system this is not always true. As a workaround, I have modified the shell commands Hijacker runs to be more persistent. I have also changed some of the ways Hijacker interacts with the underlying aircrack binaries as they run to be more reliable. Previously, Hijacker would watch what aircrack et al. would send to standard output. However, due to the privilege changes required to make Hijacker run aircrack on LineageOS, reading from standard output was no longer reliable. Instead, watchdogs were modified or created to watch for result files and act accordingly. I have not ported the MDK or Reaver exploits, so they will not work. WPA and WPA2 cracking works perfectly. This implementation can capture IVs and crack WEP keys, but it cannot use Aireplay to speed up the process. 
 
+To build Hijacker, open the Hijacker directory in Android Studio and build the APK. 
+
+To install Hijacker, copy the built APK to your LineageOS install and tap on it in the file manager. You may need to allow the installation of unknown apps.
