@@ -89,3 +89,6 @@ The original Hijacker implementation assumes that a root shell spawned by the ap
 To build Hijacker, open the Hijacker directory in Android Studio and build the APK. 
 
 To install Hijacker, copy the built APK to your LineageOS install and tap on it in the file manager. You may need to allow the installation of unknown apps.
+
+## Testing
+While devoloping a working port of Hijacker, I created a test script and config files that spawn a vulnerable WEP or WPA access point on the specified wireless interface using hostapd and dhcpcd. These files can be found in the `test-ap` directory. They're useful for testing the full implementation and, later, wordlists. 
