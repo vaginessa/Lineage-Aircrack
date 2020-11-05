@@ -14,9 +14,9 @@ How to create a new addon package:
 3) Zip contents of addonNAME/* (make sure addonNAME root does NOT get included)
 4) Sign the package with private keys in addon-certs:
    java -jar addon-certs/signapk.jar addon-certs/certificate.pem addon-certs/key.pk8    addonNAME-unsign.zip addonNAME-signed.zip
-   NOTE: java may need to be changed to jdk8 with archlinux-java 
+   NOTE: java may need to be changed to jdk8
 
 Creating new signing keys notes:
 http://www.londatiga.net/it/how-to-sign-apk-zip-files/
 
-Maybe create a script to automate everything after putting the files into system/
+Maybe create a script to automate everything after putting the files into system/xbin/
