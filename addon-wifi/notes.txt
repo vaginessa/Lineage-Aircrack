@@ -1,0 +1,22 @@
+Aircrack Binaries Addon
+
+A functioning, signed add on package that can be sideloaded when flashing LineageOS:
+
+addonwifi-signed.zip 
+
+In the event of issues, my original creation notes have been included:
+
+How to create a new addon package:
+
+1) Copy wanted files to mirror directory under addonNAME/system/
+2) Go to addonNAME/META-INF/com/google/android/ and update updater-script
+   to tell android how to place and set the files from system/
+3) Zip contents of addonNAME/* (make sure addonNAME root does NOT get included)
+4) Sign the package with private keys in addon-certs:
+   java -jar addon-certs/signapk.jar addon-certs/certificate.pem addon-certs/key.pk8    addonNAME-unsign.zip addonNAME-signed.zip
+   NOTE: java may need to be changed to jdk8 with archlinux-java 
+
+Creating new signing keys notes:
+http://www.londatiga.net/it/how-to-sign-apk-zip-files/
+
+Maybe create a script to automate everything after putting the files into system/
