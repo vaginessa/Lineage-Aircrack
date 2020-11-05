@@ -75,7 +75,8 @@ cp .config Lineage/kernel/google/marlin/arch/arm64/configs/lineageos_marlin_defc
 ## Installing the standalone binaries
 If you just want the aircrack binaries as executable programs from the command line, an addon package has been made for LineageOS 16.1. See the addon-wifi directory for the signed package.
 
-1. 
+1. [Install LineageOS normally](https://wiki.lineageos.org/devices/sailfish/install).
+2. After sideloading LineageOS but *before* rebooting, flash the [su addon](https://download.lineageos.org/extras) and [my wifi addon](
 
 ## Hijacker
 
