@@ -76,7 +76,9 @@ cp .config Lineage/kernel/google/marlin/arch/arm64/configs/lineageos_marlin_defc
 If you just want the aircrack binaries as executable programs from the command line, an addon package has been made for LineageOS 16.1. See the addon-wifi directory for the signed package.
 
 1. [Install LineageOS normally](https://wiki.lineageos.org/devices/sailfish/install).
-2. After sideloading LineageOS but *before* rebooting, flash the [su addon](https://download.lineageos.org/extras) and [my wifi addon](
+2. After sideloading LineageOS but *before* rebooting, flash my [wifi addon](https://github.com/pkelly916/Lineage-Aircrack/tree/master/addon-wifi). 
+3. *Optional:* The [su addon](https://download.lineageos.org/extras) is recommended, but can be replaced with another root implementation such as [SuperSU](https://supersu.en.uptodown.com/android) or [Magisk](https://www.xda-developers.com/how-to-install-magisk/). A root implementation is *required* to use the aircrack binaries. 
+4. Open a root terminal and run airmon-ng, aircrack-ng, etc as normal. 
 
 ## Hijacker
 
