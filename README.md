@@ -3,8 +3,8 @@ The goal of this project was to modify LineageOS 16.1 to support the [aircrack-n
 
 This guide uses sailfish as the target device, but adaptation of this method to other devices supported by Lineage should be relatively easy. 
 
-### By setting up this project, your phone will be *less* secure. This should only be used for educational purposes. 
-#### This project is very technical. Many features of Hijacker do not work. 
+### This should only be used for educational purposes. 
+#### This project is very technical. By setting up this project, your phone will be *less* secure. Many features of Hijacker do not work. 
 I explain how to pull source and build everything. Experience compiling a kernel and android apps is not required, but will help.
 
 ## Setting up the drivers
@@ -92,3 +92,7 @@ To install Hijacker, copy the built APK to your LineageOS install and tap on it 
 
 ## Testing
 While devoloping a working port of Hijacker, I created a test script and config files that spawn a vulnerable WEP or WPA access point on the specified wireless interface using hostapd and dhcpcd. These files can be found in the `test-ap` directory. They're useful for testing the full implementation and, later, wordlists. 
+
+## Legal
+
+It is illegal to use this application against networks for which you don't have permission. You can use it only on your network or a network that you are authorized to. Using software that uses a network adapter in promiscuous mode may be considered illegal even without actively using it against someone. I am not responsible for how you use this application and any damages you may cause.
